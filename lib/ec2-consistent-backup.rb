@@ -2,6 +2,7 @@ require 'rubygems'
 require 'mongo'
 require 'aws'
 require 'open-uri'
+require 'date'
 
 =begin
 - check S3 credentials
@@ -95,9 +96,9 @@ module MongoHelper
     attr_reader :path
     def initialize(port = 27017, host = 'localhost')
       @m = Mongo::Connection.new(host, port)
-      args =  @m['admin'].command({'getCmdLineOpts' => 1 })['argv']
-      p = args.index('--dbpath')
-      @path = args[p+1]
+      args =  @m['admin'].command({'getCmdLineOpts' => 1 })['parsed']
+      @path = args['dbpath']
+	  log "dbpath is: #{@path}"
       @path = File.readlink(@path) if File.symlink?(@path)
 
     end
