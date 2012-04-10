@@ -65,7 +65,7 @@ end
 
 # Sleep for a few seconds to let AWS do its thing.
 
-sleep(10)
+sleep(30)
 
 # Assemble the RAID. 
  
@@ -73,7 +73,7 @@ system "mdadm --assemble --auto-update-homehost -u #{opts[:raid_uuid]} --no-degr
 
 # Mount the volume
 
-sleep(10)
+sleep(30)
 
 system "mount /dev/mapper/#{opts[:dev_mapper_name]} #{opts[:mount]} -o noatime,noexec,nodiratime"
 
