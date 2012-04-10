@@ -1,0 +1,84 @@
+#!/usr/bin/env ruby
+# Restore a previously-snapshotted set of volumes to a functioning raid volume on the target host.
+# Order of operations:
+# shut down mongo
+# find snapshots from date.
+# create new volumes based on snapshots 
+# attach the new volumes to the instance
+# reassemble the raid 
+# mount the file system
+# start the database
+
+require 'rubygems'
+require 'trollop'
+
+lib = File.expand_path(File.dirname(__FILE__) + '/../lib')
+$LOAD_PATH.unshift(lib) if File.directory?(lib) && !$LOAD_PATH.include?(lib)
+
+require 'ec2-consistent-backup'
+
+opts = Trollop::options do
+  opt :access_key_id, "Access Key Id for AWS", :type => :string, :required => true
+  opt :secret_access_key, "Secret Access Key for AWS", :type => :string, :required => true
+  opt :devices, "Devices to recover, comma separated", :type => :string, :required => true
+  opt :backup_hostname, "Hostname of the backup server.", :type => :string, :required => true
+  opt :restore_hostname, "Hostname of the restore server.", :type => :string, :required => true
+  opt :type, "Snapshot type, to choose among #{EC2VolumeSnapshoter::KINDS.keys.join(",")}", :default => "daily"
+  opt :region, "Target region with instances", :type => :string, :required => true
+  opt :zone, "Target zone for new volumes", :type => :string, :required => true
+  opt :raid_uuid, "UUID of RAID Volume", :type => :string, :required => true
+  opt :dev_mapper_name, "Name of device under /dev/mapper", :type => :string, :required => true
+  opt :mount, "Mount point for recovered volume", :type => :string, :required => true
+end
+
+aki = opts[:access_key_id]
+sak = opts[:secret_access_key]
+region = opts[:region]
+identifier = EC2InstanceIdentifier.new(aki, sak, region)
+backup_instance = identifier.get_instance(opts[:backup_hostname])
+recover_instance = identifier.get_instance(opts[:restore_hostname])
+
+
+system "service mongodb stop"
+
+snapshoter = EC2VolumeSnapshoter.new(aki, sak, region, backup_instance.id)
+
+snapshots = snapshoter.list_snapshots(opts[:devices].split(/,/), opts[:type])
+
+# Find the snapshots that were tagged with yesterday's date. Note: This uses the tagged date that we created the snapshot with, so both the backup and restore host need to be in the same TZ.
+
+last_snap = {}
+
+snapshots.each do |key, value|
+	if Date.today.prev_day == Date.parse(key)  
+		last_snap = value
+	end
+end
+
+# Create volume and attach based on what we have above.
+
+last_snap.each do |vol|
+	tags = vol.tags.to_h
+	volume = vol.create_volume(opts[:zone]) 
+	attachment = volume.attach_to(recover_instance, tags["device"])
+end
+
+# Sleep for a few seconds to let AWS do its thing.
+
+sleep(10)
+
+# Assemble the RAID. 
+ 
+system "mdadm --assemble --auto-update-homehost -u #{opts[:raid_uuid]} --no-degraded /dev/md0"
+
+# Mount the volume
+
+sleep(10)
+
+system "mount /dev/mapper/#{opts[:dev_mapper_name]} #{opts[:mount]} -o noatime,noexec,nodiratime"
+
+# Chown database, remove lock, start mongo.
+
+system "chown -R mongodb #{opts[:mount]}"
+system "rm #{opts[:mount]}/mongodb/mongod.lock"
+system "service mongodb start"
