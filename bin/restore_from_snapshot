@@ -61,6 +61,7 @@ last_snap.each do |vol|
 	tags = vol.tags.to_h
 	volume = vol.create_volume(opts[:zone]) 
 	attachment = volume.attach_to(recover_instance, tags["device"])
+	sleep 1 until attachment.status != :attaching
 end
 
 # Sleep for a few seconds to let AWS do its thing.
