@@ -8,17 +8,15 @@ spec = Gem::Specification.new do |s|
   s.author   = 'Pierre Baillet'
   s.email    = 'oct@fotopedia.com'
   s.homepage = 'https://github.com/octplane/mongo-ec2-consistent-backup'
+  
+  s.rubyforge_project = 'mongo-ec2-backup'
 
-  # These dependencies are only for people who work on this gem
+  s.files = `git ls-files`.split("\n")
+  s.test_files = `git ls-files -- {test,spec,features}/*`.split("\n")
+  s.executables = `git ls-files -- bin/*`.split("\n").map{ |f| File.basename(f) }  
+  
   s.add_dependency 'aws-sdk'
-  s.add_dependency 'trollop'
+  s.add_dependency 'bson_ext'
   s.add_dependency 'mongo'
-
-  # Include everything in the lib folder
-  s.files = FileList['lib/**/*.rb', 'bin/*', '[A-Z]*', 'test/**/*'].to_a
-
-  s.executables << "lock_and_snapshot"
-
-  # Supress the warning about no rubyforge project
-  s.rubyforge_project = 'nowarning'
+  s.add_dependency 'trollop'
 end
