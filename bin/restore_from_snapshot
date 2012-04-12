@@ -38,13 +38,18 @@ identifier = EC2InstanceIdentifier.new(aki, sak, region)
 backup_instance = identifier.get_instance(opts[:backup_hostname])
 recover_instance = identifier.get_instance(opts[:restore_hostname])
 
+system_call("service mongodb stop", "stopping MongoDB")
 
-system "service mongodb stop"
+begin
+  snapshoter = EC2VolumeSnapshoter.new(aki, sak, region, backup_instance.id)
+  snapshots = snapshoter.list_snapshots(opts[:devices].split(/,/), opts[:type])
+rescue Exception
+  raise
+  abort "Caught an exception from AWS. Terminating."
+end
 
-snapshoter = EC2VolumeSnapshoter.new(aki, sak, region, backup_instance.id)
-
-snapshots = snapshoter.list_snapshots(opts[:devices].split(/,/), opts[:type])
-
+abort "No snapshots found!" if snapshots.empty?
+ 
 # Find the snapshots that were tagged with yesterday's date. Note: This uses the tagged date that we created the snapshot with, so both the backup and restore host need to be in the same TZ.
 
 last_snap = {}
@@ -55,13 +60,20 @@ snapshots.each do |key, value|
 	end
 end
 
+abort "Couldn't find a snapshot for #{Date.today.prev_day.to_s}!" if last_snap.empty?
+
 # Create volume and attach based on what we have above.
 
-last_snap.each do |vol|
-	tags = vol.tags.to_h
-	volume = vol.create_volume(opts[:zone]) 
-	attachment = volume.attach_to(recover_instance, tags["device"])
-	sleep 1 until attachment.status != :attaching
+begin
+  last_snap.each do |vol|
+	  tags = vol.tags.to_h
+	  volume = vol.create_volume(opts[:zone]) 
+	  attachment = volume.attach_to(recover_instance, tags["device"])
+	  sleep 1 until attachment.status != :attaching
+  end
+rescue Exception
+  raise
+  abort "Caught an acception while attempting to create an attach volumes."
 end
 
 # Sleep for a few seconds to let AWS do its thing.
@@ -70,16 +82,22 @@ sleep(30)
 
 # Assemble the RAID. 
  
-system "mdadm --assemble --auto-update-homehost -u #{opts[:raid_uuid]} --no-degraded /dev/md0"
+system_call("mdadm --assemble --auto-update-homehost -u #{opts[:raid_uuid]} --no-degraded /dev/md0", "building RAID")
 
 # Mount the volume
 
 sleep(30)
-
-system "mount /dev/mapper/#{opts[:dev_mapper_name]} #{opts[:mount]} -o noatime,noexec,nodiratime"
+system_call("mount /dev/mapper/#{opts[:dev_mapper_name]} #{opts[:mount]} -o noatime,noexec,nodiratime", "mounting data directory")
 
 # Chown database, remove lock, start mongo.
 
-system "chown -R mongodb #{opts[:mount]}"
-system "rm #{opts[:mount]}/mongodb/mongod.lock"
-system "service mongodb start"
+system_call("chown -R mongodb #{opts[:mount]}", "chowning data directory")
+system_call("rm #{opts[:mount]}/mongodb/mongod.lock", "removing lock")
+system_call("service mongodb start", "starting MongoDB")
+
+def system_call(call, action)
+  system(call)
+  if $? != 0
+    abort "System called failed while #{action}. Exit status: #{$?.exitstatus}"
+  end
+end
