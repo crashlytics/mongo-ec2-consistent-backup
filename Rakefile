@@ -24,6 +24,7 @@ spec = Gem::Specification.new do |s|
   s.files = FileList['lib/**/*.rb', 'bin/*', '[A-Z]*', 'test/**/*'].to_a
 
   s.executables << "lock_and_snapshot"
+  s.executables << "restore_from_snapshot"
 
   # Supress the warning about no rubyforge project
   s.rubyforge_project = 'nowarning'
