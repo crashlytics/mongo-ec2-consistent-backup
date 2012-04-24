@@ -38,6 +38,13 @@ identifier = EC2InstanceIdentifier.new(aki, sak, region)
 backup_instance = identifier.get_instance(opts[:backup_hostname])
 recover_instance = identifier.get_instance(opts[:restore_hostname])
 
+def system_call(call, action)
+  system(call)
+  if $? != 0
+    abort "System called failed while #{action}. Exit status: #{$?.exitstatus}"
+  end
+end
+
 system_call("service mongodb stop", "stopping MongoDB")
 
 begin
@@ -93,9 +100,4 @@ system_call("chown -R mongodb #{opts[:mount]}", "chowning data directory")
 system_call("rm #{opts[:mount]}/mongodb/mongod.lock", "removing lock")
 system_call("service mongodb start", "starting MongoDB")
 
-def system_call(call, action)
-  system(call)
-  if $? != 0
-    abort "System called failed while #{action}. Exit status: #{$?.exitstatus}"
-  end
-end
+
