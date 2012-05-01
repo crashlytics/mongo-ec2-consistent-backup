@@ -1,20 +1,22 @@
 GEM
   remote: http://rubygems.org/
   specs:
-    aws-sdk (1.1.3)
+    aws-sdk (1.4.1)
       httparty (~> 0.7)
       json (~> 1.4)
       nokogiri (>= 1.4.4)
       uuidtools (~> 2.1)
     bson (1.3.1)
-    crack (0.1.8)
-    httparty (0.7.8)
-      crack (= 0.1.8)
-    json (1.5.4)
+    bson_ext (1.3.1)
+    httparty (0.8.3)
+      multi_json (~> 1.0)
+      multi_xml
+    json (1.7.0)
     mongo (1.3.1)
       bson (>= 1.3.1)
-      bson_ext (>= 1.3.1)
-    nokogiri (1.5.0)
+    multi_json (1.3.4)
+    multi_xml (0.4.4)
+    nokogiri (1.5.2)
     trollop (1.16.2)
     uuidtools (2.1.2)
 
@@ -23,5 +25,7 @@ PLATFORMS
 
 DEPENDENCIES
   aws-sdk
-  mongo
+  bson (= 1.3.1)
+  bson_ext (= 1.3.1)
+  mongo (= 1.3.1)
   trollop
