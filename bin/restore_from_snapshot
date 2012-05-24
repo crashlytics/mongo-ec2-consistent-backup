@@ -11,6 +11,7 @@
 
 require 'rubygems'
 require 'trollop'
+require 'date'
 
 lib = File.expand_path(File.dirname(__FILE__) + '/../lib')
 $LOAD_PATH.unshift(lib) if File.directory?(lib) && !$LOAD_PATH.include?(lib)
@@ -29,6 +30,7 @@ opts = Trollop::options do
   opt :raid_uuid, "UUID of RAID Volume", :type => :string, :required => true
   opt :dev_mapper_name, "Name of device under /dev/mapper", :type => :string, :required => true
   opt :mount, "Mount point for recovered volume", :type => :string, :required => true
+  opt :date, "Date of the snapshot to recover", :type => :string, :required => false
 end
 
 aki = opts[:access_key_id]
@@ -56,17 +58,29 @@ end
 
 abort "No snapshots found!" if snapshots.empty?
  
-# Find the snapshots that were tagged with yesterday's date. Note: This uses the tagged date that we created the snapshot with, so both the backup and restore host need to be in the same TZ.
+# Find the snapshots that were tagged with a matching date in YYYY-MM-DD format. 
+# If no date is supplied, use yesterday's date.
+# Note: This uses the tagged date that we created the snapshot with, so both the backup and restore host need to be in the same TZ.
 
 last_snap = {}
 
-snapshots.each do |key, value|
-	if Date.today.prev_day == Date.parse(key)  
-		last_snap = value
-	end
+begin 
+ if opts[:date]
+   target_date = Date.parse(opts[:date])
+ else 
+   target_date = Date.today.prev_day
+ end
+ rescue Exception => e
+   abort "#{e.class}: #{e.message}"
 end
 
-abort "Couldn't find a snapshot for #{Date.today.prev_day.to_s}!" if last_snap.empty?
+snapshots.each do |key, value|
+  if target_date == Date.parse(key)  
+    last_snap = value
+  end
+end
+
+abort "Couldn't find a snapshot for #{target_date.to_s}!" if last_snap.empty?
 
 # Create volume and attach based on what we have above.
 
