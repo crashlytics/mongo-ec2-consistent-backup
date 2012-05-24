@@ -1,7 +1,4 @@
-source :gemcutter
+source "http://rubygems.org"
+# Specify your gem's dependencies in mongo-ec2-backup.gemspec
+gemspec
 
-gem "mongo", "1.3.1"
-gem "bson", "1.3.1"
-gem "bson_ext", "1.3.1"
-gem "aws-sdk"
-gem "trollop"
