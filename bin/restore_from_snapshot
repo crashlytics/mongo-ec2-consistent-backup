@@ -47,6 +47,11 @@ def system_call(call, action)
   end
 end
 
+if File.exist?("/dev/mapper/#{ opts[:dev_mapper_name] }")
+  log "There's already an array at /dev/mapper/#{ opts[:dev_mapper_name] }, not restoring"
+  exit 0
+end
+
 system_call("service mongodb stop", "stopping MongoDB")
 
 begin
@@ -59,7 +64,7 @@ end
 abort "No snapshots found!" if snapshots.empty?
  
 # Find the snapshots that were tagged with a matching date in YYYY-MM-DD format. 
-# If no date is supplied, use yesterday's date.
+# If no date is supplied, use today's date (assumes snapshots happen at midnight on the same day).
 # Note: This uses the tagged date that we created the snapshot with, so both the backup and restore host need to be in the same TZ.
 
 last_snap = {}
@@ -68,7 +73,7 @@ begin
  if opts[:date]
    target_date = Date.parse(opts[:date])
  else 
-   target_date = Date.today.prev_day
+   target_date = Date.today
  end
  rescue Exception => e
    abort "#{e.class}: #{e.message}"
@@ -87,8 +92,10 @@ abort "Couldn't find a snapshot for #{target_date.to_s}!" if last_snap.empty?
 begin
   last_snap.each do |vol|
     tags = vol.tags.to_h
-    volume = vol.create_volume(opts[:zone]) 
+    volume = vol.create_volume(opts[:zone])
+    volume.tags.Name = "restore_from_snapshot #{ tags['device'] } from backup of #{ opts[:backup_hostname] } to restore on #{ opts[:restore_hostname] }" 
     attachment = volume.attach_to(recover_instance, tags["device"])
+    log "Attaching #{ tags['device'] }"
     sleep 1 until attachment.status != :attaching
   end
 rescue Exception => e
