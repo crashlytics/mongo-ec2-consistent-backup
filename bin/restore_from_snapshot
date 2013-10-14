@@ -94,6 +94,7 @@ begin
     tags = vol.tags.to_h
     volume = vol.create_volume(opts[:zone])
     volume.tags.Name = "restore_from_snapshot #{ tags['device'] } from backup of #{ opts[:backup_hostname] } to restore on #{ opts[:restore_hostname] }" 
+    sleep 1 until volume.status == :available
     attachment = volume.attach_to(recover_instance, tags["device"])
     log "Attaching #{ tags['device'] }"
     sleep 1 until attachment.status != :attaching
@@ -107,7 +108,7 @@ end
 sleeper = 0
 until File.exist?("/dev/mapper/#{ opts[:dev_mapper_name] }")
   if sleeper >= 60
-    abort "Waited too long for /dev/mapper/#{ options[:dev_mapper_name] } to exist. Giving up."
+    abort "Waited too long for /dev/mapper/#{ opts[:dev_mapper_name] } to exist. Giving up."
   else
     sleep(10)
     sleeper += 10
