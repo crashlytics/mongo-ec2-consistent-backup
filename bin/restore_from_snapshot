@@ -47,8 +47,8 @@ def system_call(call, action)
   end
 end
 
-if File.exist?("/dev/mapper/#{ opts[:dev_mapper_name] }")
-  log "There's already an array at /dev/mapper/#{ opts[:dev_mapper_name] }, not restoring"
+if `cat /proc/mdstat` =~ /active/
+  log "There's already a raid array, not restoring"
   exit 0
 end
 
@@ -106,9 +106,9 @@ end
 # Sleep for a few seconds for the volume mapper to find the volume.
 
 sleeper = 0
-until File.exist?("/dev/mapper/#{ opts[:dev_mapper_name] }")
+until `cat /proc/mdstat` =~ /active/
   if sleeper >= 60
-    abort "Waited too long for /dev/mapper/#{ opts[:dev_mapper_name] } to exist. Giving up."
+    abort "Waited too long for the raid array to assemble. Giving up."
   else
     sleep(10)
     sleeper += 10
