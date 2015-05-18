@@ -97,11 +97,18 @@ module MongoHelper
     def initialize(port = 27017, host = 'localhost')
       @m = Mongo::Connection.new(host, port)
       args =  @m['admin'].command({'getCmdLineOpts' => 1 })['parsed']
-      @path = args['dbpath']
-	  log "dbpath is: #{@path}"
-      @path = File.readlink(@path) if File.symlink?(@path)
+      if args['dbpath']
+        # Mongo 2.2 & 2.4
+        @path = args['dbpath']
+      else
+        # Mongo 2.6
+        @path = args['storage']['dbPath']
+      end
 
+      log "dbpath is: #{@path}"
+      @path = File.readlink(@path) if File.symlink?(@path)
     end
+
     def lock
       return if locked?
       @m.lock!
@@ -110,9 +117,11 @@ module MongoHelper
       end
       raise "Not locked as asked" if !locked?
     end
+
     def locked?
       @m.locked?
     end
+
     def unlock
       return if !locked?
       raise "Already unlocked" if !locked?
