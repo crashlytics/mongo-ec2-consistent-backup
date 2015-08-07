@@ -250,7 +250,7 @@ class EC2InstanceIdentifier
   # Returns the instance corresponding to the provided hostname
   def get_instance(hostname)
     ip = Resolv.getaddress(hostname)
-    instance = @ec2.instances.find { |i| i.private_ip_address  == ip || i.ip_address == ip }
+    instance = @ec2.instances.filter('private-ip-address', ip).first
     raise InstanceNotFoundException.new(hostname) if instance == nil
     return instance
   end
